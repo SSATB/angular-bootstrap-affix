@@ -9,7 +9,7 @@
     "angular-jquery": "~0.2.1"
   },
   "devDependencies": {
-    "angular": "latest",
-    "angular-mocks": "latest"
+    "angular": "1.5.11",
+    "angular-mocks": "1.5.11"
   }
 }
