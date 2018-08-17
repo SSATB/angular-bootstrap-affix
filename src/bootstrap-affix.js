@@ -17,13 +17,16 @@ function getDocHeight() {
 
 angular
   .module("mgcrea.bootstrap.affix", ["mgcrea.jquery"])
-  .directive("bsAffix", function($window, dimensions) {
-    var checkPosition = function(instance, el, options) {
+  .directive("bsAffix", function($window, dimensions, $timeout) {
+    var AFFIX_NEEDS_UPDATING = "affixNeedsUpdating";
+
+    var checkPosition = function (instance, el, options) {
       var scrollTop = window.pageYOffset;
       var windowHeight = window.innerHeight;
       var scrollHeight = getDocHeight(); //document.body.scrollHeight;
       var position = dimensions.offset.call(el[0]);
       var height = dimensions.height.call(el[0]);
+      var width = dimensions.width.call(el[0]);
       var offsetTop = options.offsetTop * 1;
       var offsetBottom = options.offsetBottom * 1;
       var top = options.top * 1;
@@ -33,36 +36,39 @@ angular
       if (options.offSetElement) {
         var offsetElement = getElement(options.offSetElement);
         if (offsetElement && offsetElement[0]) {
-          top = dimensions.height.call(offsetElement[0]);
+          top = offsetElement[0].clientHeight;
         }
       }
 
-      if (instance.originTop == null) {
+      if (angular.isUndefined(instance.originTop) || instance.originTop === null) {
         instance.originTop = position.top;
         if (top) {
           instance.originTop = instance.originTop - top;
         }
       }
 
-      if (windowHeight >= height && instance.originTop <= scrollTop) {
+      if (height > 0 && instance.originTop <= scrollTop) {
         affix = "top";
-      } else if (windowHeight <= height && scrollTop >= instance.originTop) {
-        affix = "bottom";
       } else {
         affix = false;
       }
-      if (instance.affixed === affix) return;
+      if (instance.affixed === affix) {
+        if (affix && angular.isDefined(top) && angular.isDefined(instance.top) && top !== instance.top && angular.isDefined(height) && height > 0) {
+          el.attr('style', 'top:' + top + 'px;width:' + width + 'px;');
+        }
+        return;
+      }
       instance.affixed = affix;
 
       el
         .removeClass(reset)
         .addClass("" + (affix ? "affix affix-" + affix : ""));
-      if (affix) {
-        if (angular.isDefined(top)) {
-          el.attr('style', 'top:' + top + 'px');
-        }
+      if (affix && angular.isDefined(top) && angular.isDefined(height) && height > 0) {
+        el.attr('style', 'top:' + top + 'px;width:' + width + 'px;');
+        instance.top = top;
       } else {
         el.removeAttr('style');
+        instance.top = null;
       }
     };
 
@@ -76,7 +82,6 @@ angular
 
     var getElement = function (elementId) {
       var element = angular.element(document.getElementById(elementId));
-      console.log('element', element);
       return element;
     };
 
@@ -85,16 +90,33 @@ angular
       link: function postLink(scope, iElement, iAttrs) {
         var instance = { unpin: null };
 
-        angular.element($window).bind("scroll", function() {
-          checkPosition(instance, iElement, iAttrs);
-          checkCallbacks(scope, instance, iElement, iAttrs);
-        });
+        var onScroll = function () {
+          $timeout(function () {
+            checkPosition(instance, iElement, iAttrs);
+            checkCallbacks(scope, instance, iElement, iAttrs);
+          });
+        };
 
-        angular.element($window).bind("click", function() {
-          setTimeout(function() {
+        var onClick = function () {
+          $timeout(function () {
             checkPosition(instance, iElement, iAttrs);
             checkCallbacks(scope, instance, iElement, iAttrs);
           }, 1);
+        };
+
+        if (angular.isDefined(iAttrs.disablePinning) && (iAttrs.disablePinning === 'true' || iAttrs.disablePinning === true)) {
+          return;
+        }
+
+        angular.element($window).on("scroll", onScroll);
+
+        angular.element($window).on("click", onclick);
+
+        scope.$on(AFFIX_NEEDS_UPDATING, onScroll);
+
+        scope.$on('$destroy', function () {
+          angular.element($window).off("scroll", onScroll);
+          angular.element($window).off("click", onclick);
         });
       }
     };
