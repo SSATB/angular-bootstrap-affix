@@ -88,7 +88,7 @@ angular
     return {
       restrict: "EAC",
       link: function postLink(scope, iElement, iAttrs) {
-        var instance = { unpin: null };
+        var instance = { unpin: null, loaded: false };
 
         var onScroll = function () {
           $timeout(function () {
@@ -108,11 +108,22 @@ angular
           return;
         }
 
-        angular.element($window).on("scroll", onScroll);
+        if (angular.isUndefined(iAttrs.waitForUpdateEvent) || (iAttrs.waitForUpdateEvent !== 'true' && iAttrs.waitForUpdateEvent !== true)) {
+          angular.element($window).on("scroll", onScroll);
 
-        angular.element($window).on("click", onclick);
+          angular.element($window).on("click", onclick);
+        }
 
-        scope.$on(AFFIX_NEEDS_UPDATING, onScroll);
+        if (angular.isDefined(iAttrs.updateEventName) && iAttrs.updateEventName) {
+          scope.$on(iAttrs.updateEventName, function () {
+            if (angular.isDefined(iAttrs.waitForUpdateEvent) && (iAttrs.waitForUpdateEvent === 'true' || iAttrs.waitForUpdateEvent === true && !instance.loaded)) {
+              angular.element($window).on("scroll", onScroll);
+              angular.element($window).on("click", onclick);
+              instance.loaded = true;
+            }
+            onScroll();
+          });
+        }
 
         scope.$on('$destroy', function () {
           angular.element($window).off("scroll", onScroll);

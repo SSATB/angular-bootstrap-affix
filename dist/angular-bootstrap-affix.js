@@ -77,7 +77,10 @@ angular.module('mgcrea.bootstrap.affix', ['mgcrea.jquery']).directive('bsAffix',
     return {
       restrict: 'EAC',
       link: function postLink(scope, iElement, iAttrs) {
-        var instance = { unpin: null };
+        var instance = {
+            unpin: null,
+            loaded: false
+          };
         var onScroll = function () {
           $timeout(function () {
             checkPosition(instance, iElement, iAttrs);
@@ -93,9 +96,20 @@ angular.module('mgcrea.bootstrap.affix', ['mgcrea.jquery']).directive('bsAffix',
         if (angular.isDefined(iAttrs.disablePinning) && (iAttrs.disablePinning === 'true' || iAttrs.disablePinning === true)) {
           return;
         }
-        angular.element($window).on('scroll', onScroll);
-        angular.element($window).on('click', onclick);
-        scope.$on(AFFIX_NEEDS_UPDATING, onScroll);
+        if (angular.isUndefined(iAttrs.waitForUpdateEvent) || iAttrs.waitForUpdateEvent !== 'true' && iAttrs.waitForUpdateEvent !== true) {
+          angular.element($window).on('scroll', onScroll);
+          angular.element($window).on('click', onclick);
+        }
+        if (angular.isDefined(iAttrs.updateEventName) && iAttrs.updateEventName) {
+          scope.$on(iAttrs.updateEventName, function () {
+            if (angular.isDefined(iAttrs.waitForUpdateEvent) && (iAttrs.waitForUpdateEvent === 'true' || iAttrs.waitForUpdateEvent === true && !instance.loaded)) {
+              angular.element($window).on('scroll', onScroll);
+              angular.element($window).on('click', onclick);
+              instance.loaded = true;
+            }
+            onScroll();
+          });
+        }
         scope.$on('$destroy', function () {
           angular.element($window).off('scroll', onScroll);
           angular.element($window).off('click', onclick);
